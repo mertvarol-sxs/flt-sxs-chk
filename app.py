@@ -20,72 +20,96 @@ if st.sidebar.button("🔄 Reset Fleet"):
 csv = st.session_state.fleet_df.to_csv(index=False).encode("utf-8")
 st.sidebar.download_button("📥 Download Fleet CSV", data=csv, file_name="fleet_data.csv", mime="text/csv")
 
-selected_tab = st.sidebar.radio("📂 Navigation", ["📥 Add", "❌ Remove", "📊 Fleet Age Overview", "📊 Fleet Breakdown", "📋 Table Overview"])
+selected_tab = st.sidebar.radio("📂 Navigation", ["✍️ Manage Fleet", "📊 Fleet Age Overview", "📊 Fleet Breakdown", "📋 Table Overview"])
 
-if selected_tab == "📥 Add":
-    st.header("Add Aircraft")
-    with st.form("add_form"):
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            reg = st.text_input("Registration")
-            ac_type = st.selectbox("Aircraft Type", ['B737-800NG', 'B737-8', 'B737-10', 'A320neo', 'A321neo', 'Others'])
-        with col2:
-            dom = st.date_input("Date of Manufacture")
-            doi = st.date_input("Date of Entry into Fleet")
-            lease_type = st.selectbox("Lease Type", ['OWN', 'FIN', 'OPS'])
-        with col3:
-            lease_end = st.date_input("Lease End Date", disabled=(lease_type != 'OPS'))
-            market_value = st.number_input("Market Value (USD)", min_value=0)
-            monthly_lease = st.number_input("Monthly Lease (USD, if OPS)", min_value=0)
 
-        submitted = st.form_submit_button("Add Aircraft")
-        if submitted:
-            if doi < dom:
-                st.error("Date of Entry into Fleet cannot be earlier than Date of Manufacture!")
-            else:
-                new_row = {
-                    'Reg.': reg,
-                    'Aircraft Type': ac_type,
-                    'Aircraft Variant': '',
-                    'Date of Manufacture': pd.to_datetime(dom),
-                    'DOI': pd.to_datetime(doi),
-                    'DOE': pd.NaT,
-                    'Lease Type': lease_type,
-                    'Lease End Date': pd.to_datetime(lease_end) if lease_type == 'OPS' else pd.NaT,
-                    'Market Value': market_value,
-                    'Monthly Lease (OPS)': monthly_lease if lease_type == 'OPS' else pd.NA
-                }
-                st.session_state.fleet_df = pd.concat([st.session_state.fleet_df, pd.DataFrame([new_row])], ignore_index=True)
-                st.success(f"{reg} added to the fleet.")
+if selected_tab == "✍️ Manage Fleet":
+    st.header("✍️ Manage Fleet")
 
-elif selected_tab == "❌ Remove":
-    st.header("Remove Aircraft")
+    with st.expander("➕ Add Aircraft"):
+            with st.form("add_form"):
+                col1, col2, col3 = st.columns(3)
+                with col1:
+                    reg = st.text_input("Registration")
+                    ac_type = st.selectbox("Aircraft Type", ['B737-800NG', 'B737-8', 'B737-10', 'A320neo', 'A321neo', 'Others'])
+                with col2:
+                    dom = st.date_input("Date of Manufacture")
+                    doi = st.date_input("Date of Entry into Fleet")
+                    lease_type = st.selectbox("Lease Type", ['OWN', 'FIN', 'OPS'])
+                with col3:
+                    lease_end = st.date_input("Lease End Date", disabled=(lease_type != 'OPS'))
+                    market_value = st.number_input("Market Value (USD)", min_value=0)
+                    monthly_lease = st.number_input("Monthly Lease (USD, if OPS)", min_value=0)
 
-    df_active = st.session_state.fleet_df[st.session_state.fleet_df['DOE'].isna()]
-    removal_option = st.radio("Select a removal option:", ["Remove oldest X aircraft", "Remove by registration"])
-    removal_date = st.date_input("Select Exit Date", datetime.today())
+                submitted = st.form_submit_button("Add Aircraft")
+                if submitted:
+                    if doi < dom:
+                        st.error("Date of Entry into Fleet cannot be earlier than Date of Manufacture!")
+                    else:
+                        new_row = {
+                            'Reg.': reg,
+                            'Aircraft Type': ac_type,
+                            'Aircraft Variant': '',
+                            'Date of Manufacture': pd.to_datetime(dom),
+                            'DOI': pd.to_datetime(doi),
+                            'DOE': pd.NaT,
+                            'Lease Type': lease_type,
+                            'Lease End Date': pd.to_datetime(lease_end) if lease_type == 'OPS' else pd.NaT,
+                            'Market Value': market_value,
+                            'Monthly Lease (OPS)': monthly_lease if lease_type == 'OPS' else pd.NA
+                        }
+                        st.session_state.fleet_df = pd.concat([st.session_state.fleet_df, pd.DataFrame([new_row])], ignore_index=True)
+                        st.success(f"{reg} added to the fleet.")
 
-    if removal_option == "Remove oldest X aircraft":
-        count = st.number_input("Number of oldest aircraft to remove", min_value=1, max_value=len(df_active), step=1)
-        if st.button("Remove Oldest Aircraft"):
-            df_active = df_active.copy()
-            df_active['Age'] = (removal_date - df_active['Date of Manufacture']).dt.days
-            df_active = df_active.sort_values(by='Age', ascending=False)
-            to_remove = df_active.head(count)
-            st.session_state.fleet_df.loc[to_remove.index, 'DOE'] = removal_date
 
-            own_contribution = to_remove[to_remove['Lease Type'] == 'OWN']['Market Value'].sum()
-            st.success(f"Removed {count} aircraft. Financial contribution from OWN aircraft: ${own_contribution:,.0f}")
+    with st.expander("➖ Remove Aircraft"):
 
-    elif removal_option == "Remove by registration":
-        regs_to_remove = st.multiselect("Select registrations to remove", df_active['Reg.'].tolist())
-        if st.button("Remove Selected Aircraft"):
-            to_remove = df_active[df_active['Reg.'].isin(regs_to_remove)]
-            st.session_state.fleet_df.loc[to_remove.index, 'DOE'] = removal_date
+            df_active = st.session_state.fleet_df[st.session_state.fleet_df['DOE'].isna()]
+            removal_option = st.radio("Select a removal option:", ["Remove oldest X aircraft", "Remove by registration"])
+            removal_date = st.date_input("Select Exit Date", datetime.today())
 
-            own_contribution = to_remove[to_remove['Lease Type'] == 'OWN']['Market Value'].sum()
-            st.success(f"Removed {len(to_remove)} aircraft. Financial contribution from OWN aircraft: ${own_contribution:,.0f}")
+            if removal_option == "Remove oldest X aircraft":
+                count = st.number_input("Number of oldest aircraft to remove", min_value=1, max_value=len(df_active), step=1)
+                if st.button("Remove Oldest Aircraft"):
+                    df_active = df_active.copy()
+                    df_active['Age'] = (removal_date - df_active['Date of Manufacture']).dt.days
+                    df_active = df_active.sort_values(by='Age', ascending=False)
+                    to_remove = df_active.head(count)
+                    st.session_state.fleet_df.loc[to_remove.index, 'DOE'] = removal_date
 
+                    own_contribution = to_remove[to_remove['Lease Type'] == 'OWN']['Market Value'].sum()
+                    st.success(f"Removed {count} aircraft. Financial contribution from OWN aircraft: ${own_contribution:,.0f}")
+
+            elif removal_option == "Remove by registration":
+                regs_to_remove = st.multiselect("Select registrations to remove", df_active['Reg.'].tolist())
+                if st.button("Remove Selected Aircraft"):
+                    to_remove = df_active[df_active['Reg.'].isin(regs_to_remove)]
+                    st.session_state.fleet_df.loc[to_remove.index, 'DOE'] = removal_date
+
+                    own_contribution = to_remove[to_remove['Lease Type'] == 'OWN']['Market Value'].sum()
+                    st.success(f"Removed {len(to_remove)} aircraft. Financial contribution from OWN aircraft: ${own_contribution:,.0f}")
+
+
+    # Show summary of changes
+    st.markdown("### ✏️ Summary of Changes This Session")
+    if 'fleet_df' in st.session_state:
+        today = datetime.today().date()
+        added = st.session_state.fleet_df[
+            pd.to_datetime(st.session_state.fleet_df['DOI'], errors='coerce').dt.date == today
+        ]
+        deleted = st.session_state.fleet_df[
+            pd.to_datetime(st.session_state.fleet_df['DOE'], errors='coerce').dt.date == today
+        ]
+
+        if added.empty and deleted.empty:
+            st.info("No additions or removals recorded for today.")
+        else:
+            if not added.empty:
+                added_regs = ', '.join(added['Reg.'].dropna().astype(str).tolist())
+                st.success(f"✅ Added aircraft: {added_regs}")
+            if not deleted.empty:
+                deleted_regs = ', '.join(deleted['Reg.'].dropna().astype(str).tolist())
+                st.error(f"❌ Removed aircraft: {deleted_regs}")
 elif selected_tab == "📊 Fleet Age Overview":
     st.header("Fleet Age Overview")
 
@@ -93,11 +117,16 @@ elif selected_tab == "📊 Fleet Age Overview":
         avg_ages = {}
         for year in range(start_year, start_year + years):
             date = datetime(year, 1, 1)
-            active = df[(df['DOI'] <= date) & ((df['DOE'].isna()) | (df['DOE'] > date))]
-            if not active.empty:
-                ages = (date - active['Date of Manufacture']).dt.days / 365.25
-                avg_ages[year] = ages.mean()
-            else:
+            try:
+                active = df[(df['DOI'] <= date) & ((df['DOE'].isna()) | (df['DOE'] > date))]
+                active = active.copy()
+                active = active.dropna(subset=['Date of Manufacture'])
+                if not active.empty:
+                    ages = (date - active['Date of Manufacture']).dt.days / 365.25
+                    avg_ages[year] = ages.mean()
+                else:
+                    avg_ages[year] = 0
+            except Exception:
                 avg_ages[year] = 0
         return pd.Series(avg_ages)
 
@@ -118,7 +147,8 @@ elif selected_tab == "📊 Fleet Breakdown":
     st.header("Fleet Breakdown")
 
     selected_breakdown_date = st.date_input("Select Breakdown Date", datetime.today())
-    scenario_df = st.session_state.fleet_df
+    scenario_df = st.session_state.fleet_df.copy()
+    scenario_df = scenario_df.dropna(subset=['DOI', 'Date of Manufacture'])
     scenario_df = scenario_df[(scenario_df['DOI'] <= selected_breakdown_date) & ((scenario_df['DOE'].isna()) | (scenario_df['DOE'] > selected_breakdown_date))]
 
     if scenario_df.empty:
@@ -145,3 +175,4 @@ elif selected_tab == "📊 Fleet Breakdown":
 elif selected_tab == "📋 Table Overview":
     st.header("📋 Full Fleet Data Overview")
     st.dataframe(st.session_state.fleet_df, use_container_width=True)
+
