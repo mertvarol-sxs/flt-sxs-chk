@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -8,6 +9,16 @@ st.set_page_config(layout="wide")
 
 if 'fleet_df' not in st.session_state:
     st.session_state.fleet_df = initialize_fleet_data()
+
+
+# Reset and Download Buttons
+st.sidebar.markdown("---")
+if st.sidebar.button("🔄 Reset Fleet"):
+    st.session_state.fleet_df = initialize_fleet_data()
+    st.sidebar.success("Fleet reset to original state.")
+
+csv = st.session_state.fleet_df.to_csv(index=False).encode("utf-8")
+st.sidebar.download_button("📥 Download Fleet CSV", data=csv, file_name="fleet_data.csv", mime="text/csv")
 
 selected_tab = st.sidebar.radio("📂 Navigation", ["📥 Add", "❌ Remove", "📊 Fleet Age Overview", "📊 Fleet Breakdown", "📋 Table Overview"])
 
